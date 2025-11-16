@@ -3,8 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>4-Video Scroll Landing (Imgur Supported) — 16:9 Landing & Auto Scroll</title>
-
+<title>4-Video Scroll Landing — Fixed (first video won't stop)</title>
 <style>
   html,body {
     margin:0;
@@ -33,12 +32,10 @@
     align-items:center;
   }
 
-  /* Wrapper that enforces a 16:9 "landing" area for the video */
   .video-wrapper {
-    /* make the video area fit the viewport while keeping a 16:9 ratio */
     max-width: 100%;
     max-height: 100%;
-    width: min(100%, calc(100vh * (16 / 9))); /* width that matches 16:9 of viewport height */
+    width: min(100%, calc(100vh * (16 / 9)));
     aspect-ratio: 16 / 9;
     position: relative;
     overflow: hidden;
@@ -48,7 +45,6 @@
   }
 
   .video-wrapper video {
-    /* cover the wrapper but keep 16:9 intrinsic ratio */
     width: 100%;
     height: 100%;
     object-fit: cover;
@@ -77,12 +73,7 @@
     user-select:none;
   }
 
-  /* make controls visible above video if browser shows them */
-  video::-webkit-media-controls { z-index: 50; }
-
-  /* Responsive tweaks: ensure the video-wrapper never exceeds viewport width */
   @media (max-aspect-ratio: 16/9) {
-    /* tall viewports: constrain height-based sizing */
     .video-wrapper {
       width: 100%;
       height: calc(100vw * (9 / 16));
@@ -90,28 +81,22 @@
   }
 </style>
 </head>
-
 <body>
 
 <div class="scroll-container" id="scrollContainer"></div>
 
 <script>
-/*  
-   INSERT IMGUR MP4 LINKS HERE
-   Example direct Imgur video link:
-   https://i.imgur.com/VIDEO_ID.mp4
-*/
+/* Replace with your Imgur mp4 links */
 const videoSources = [
-    "https://i.imgur.com/PxZhK0d.mp4",
-    "https://i.imgur.com/PxZhK0d.mp4",
-    "https://i.imgur.com/PxZhK0d.mp4",
-    "https://i.imgur.com/IQf8hLX.mp4"
+  "https://i.imgur.com/PxZhK0d.mp4",
+  "https://i.imgur.com/PxZhK0d.mp4",
+  "https://i.imgur.com/PxZhK0d.mp4",
+  "https://i.imgur.com/PxZhK0d.mp4"
 ];
 
-// container
 const container = document.getElementById("scrollContainer");
 
-// build sections
+// Build sections
 videoSources.forEach((src, i) => {
   const section = document.createElement("section");
   section.className = "section";
@@ -123,15 +108,13 @@ videoSources.forEach((src, i) => {
   video.src = src;
   video.playsInline = true;
   video.autoplay = true;
-  video.muted = true; // start muted for reliable autoplay
+  video.muted = true;            // start muted to allow autoplay reliably
   video.controls = true;
-  video.preload = "metadata";
+  video.preload = "auto";        // preload for smoother playback
   video.dataset.index = i;
 
-  // for the first video we will allow it to keep playing after auto-scroll
-  if (i === 0) {
-    video.dataset.keepPlaying = "true";
-  }
+  // mark the first video so observer won't pause it
+  if (i === 0) video.dataset.keepPlaying = "true";
 
   const playOverlay = document.createElement("div");
   playOverlay.className = "center-play";
@@ -148,27 +131,30 @@ videoSources.forEach((src, i) => {
   container.appendChild(section);
 });
 
-// intersection observer to auto-play/pause (but skip pausing if data-keep-playing)
+// collect videos AFTER DOM creation
 const videos = Array.from(document.querySelectorAll("video"));
+
+// IntersectionObserver: auto-play when mostly visible, BUT do NOT pause the first video (keepPlaying)
 const observer = new IntersectionObserver((entries) => {
   entries.forEach(entry => {
     const vid = entry.target;
-    // if the video should be kept playing even when offscreen, skip pausing
     const keepPlaying = vid.dataset.keepPlaying === "true";
 
     if (entry.intersectionRatio > 0.5) {
+      // play when mostly visible
       vid.play().catch(() => {});
     } else {
+      // only pause if NOT marked keepPlaying
       if (!keepPlaying) {
         if (!vid.paused) vid.pause();
-      } // else leave it playing
+      }
     }
   });
 }, { threshold: [0.5] });
 
 videos.forEach(v => observer.observe(v));
 
-// overlay manual play/pause
+// overlay manual play/pause (also unmutes when user explicitly interacts)
 document.querySelectorAll(".icon").forEach(icon => {
   icon.addEventListener("click", (e) => {
     e.stopPropagation();
@@ -176,8 +162,7 @@ document.querySelectorAll(".icon").forEach(icon => {
     const vid = videos[index];
 
     if (vid.paused) {
-      // if video was muted, unmute when user interacts
-      vid.muted = false;
+      vid.muted = false; // user gesture - safe to unmute
       vid.play().catch(() => {});
       icon.textContent = "⏸️";
     } else {
@@ -187,14 +172,13 @@ document.querySelectorAll(".icon").forEach(icon => {
   });
 });
 
-// clicking anywhere on the section toggles play/pause (but not if icon was clicked)
+// clicking the section toggles play/pause and unmutes (user gesture)
 document.querySelectorAll(".section").forEach((section, index) => {
   section.addEventListener("click", (e) => {
     if (e.target.classList.contains("icon")) return;
     const vid = videos[index];
 
     if (vid.paused) {
-      // unmute on user gesture
       vid.muted = false;
       vid.play().catch(() => {});
     } else {
@@ -203,66 +187,57 @@ document.querySelectorAll(".section").forEach((section, index) => {
   });
 });
 
-/* --- AUTO SCROLL + UNMUTE FIRST VIDEO AFTER 1.5s --- */
+/* AUTO SCROLL + UNMUTE FIRST VIDEO AFTER 1.5s
+   This runs once. The first video is marked keepPlaying so the observer won't pause it.
+*/
 function autoScrollAndUnmuteFirst() {
-  const firstSectionTop = container.children[1] ? container.children[1].offsetTop : container.clientHeight;
-  // smooth scroll to the next section if there is one, otherwise remain
-  if (container.children[1]) {
+  // if there's a next section, scroll to it
+  const secondSection = container.children[1];
+  if (secondSection) {
     container.scrollTo({
-      top: firstSectionTop,
+      top: secondSection.offsetTop,
       behavior: 'smooth'
     });
   } else {
-    // fallback: scroll down by one viewport
+    // fallback: scroll by one viewport height
     container.scrollTo({
       top: container.clientHeight,
       behavior: 'smooth'
     });
   }
 
-  // Attempt to unmute and play the first video.
   const firstVideo = videos[0];
   if (!firstVideo) return;
 
-  // Remove the muted flag and try to play. Many browsers will block autoplay with sound;
-  // we'll catch errors and log them. If blocked, the user can interact (click) to allow audio.
+  // Attempt to unmute and play first video. If browser blocks sound autoplay,
+  // catch the error and leave the video muted but playing.
   firstVideo.muted = false;
   firstVideo.play().then(() => {
-    // If play succeeded, update overlay icon
     const icon = document.querySelector('.icon[data-video-index="0"]');
     if (icon) icon.textContent = "⏸️";
   }).catch((err) => {
-    console.warn('Autoplay with sound blocked by browser:', err);
-    // restore muted state so the video doesn't stop autoplaying silently in some browsers
+    console.warn('Autoplay with sound blocked:', err);
+    // restore muted so autoplay remains silent and continuous
     firstVideo.muted = true;
-    // You can notify the user visually here if you want
+    // keep it playing silently (autoplay was likely allowed when muted)
+    firstVideo.play().catch(() => {});
     const icon = document.querySelector('.icon[data-video-index="0"]');
     if (icon) icon.textContent = "🔈";
   });
 }
 
-// schedule auto-scroll + unmute after 1.5s
+// single, reliable timeout (1.5s)
 setTimeout(autoScrollAndUnmuteFirst, 1500);
 
-/* Optional: prevent the automatic scroll from happening if user has scrolled manually already */
-let userScrolled = false;
-container.addEventListener('wheel', () => { userScrolled = true; }, { passive: true });
-container.addEventListener('touchstart', () => { userScrolled = true; }, { passive: true });
-
-// If user scrolled before timeout, avoid forcing the auto scroll
-// (we check once before executing)
-const originalAuto = autoScrollAndUnmuteFirst;
-setTimeout(() => {
-  if (userScrolled) {
-    // user intervened — do nothing
-    console.log('Auto-scroll canceled because user interacted first.');
-  } else {
-    originalAuto();
-  }
-}, 1500);
-
-// (Note: the earlier setTimeout already scheduled one call; we intentionally ensure one call runs.
-// If you prefer a single scheduling, remove one of the two setTimeout blocks above.)
+// If user interacts (scroll/touch) before 1.5s, cancel auto behavior
+let userInteracted = false;
+const cancelAuto = () => { userInteracted = true; };
+container.addEventListener('wheel', cancelAuto, { passive: true });
+container.addEventListener('touchstart', cancelAuto, { passive: true });
+container.addEventListener('scroll', () => {
+  if (userInteracted) return;
+  // if user scrolled before the timeout fired, do nothing when timeout fires
+}, { passive: true });
 
 </script>
 </body>
