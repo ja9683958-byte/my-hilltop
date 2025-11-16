@@ -3,33 +3,33 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Reels Style Scroll Landing</title>
+<title>Mobile Reel Style</title>
 
 <style>
-  html,body{
+  html,body {
     margin:0;
     height:100%;
     background:#000;
     font-family:Arial, sans-serif;
+    overflow:hidden;
   }
 
-  .scroll-container{
+  .scroll-container {
     height:100vh;
     width:100vw;
     overflow-y:auto;
     scroll-snap-type:y mandatory;
   }
 
-  .section{
+  .section {
     height:100vh;
     width:100%;
-    position:relative;
     scroll-snap-align:start;
-    background:#000;
-    overflow:hidden;
+    position:relative;
+    background:black;
   }
 
-  .section video{
+  video {
     position:absolute;
     top:50%;
     left:50%;
@@ -39,69 +39,47 @@
     object-fit:cover;
   }
 
-  /* Right-side Instagram actions */
-  .actions{
+  .ui {
     position:absolute;
-    right:12px;
-    bottom:70px;
-    display:flex;
-    flex-direction:column;
-    gap:18px;
-    z-index:30;
-    text-align:center;
+    bottom:20px;
+    left:20px;
+    z-index:20;
     color:white;
-    font-size:14px;
   }
-  .actions div{
-    cursor:pointer;
+
+  .profile {
+    display:flex;
+    align-items:center;
+    gap:10px;
+    margin-bottom:10px;
   }
-  .actions img{
-    width:48px;
-    height:48px;
+
+  .profile img {
+    width:45px;
+    height:45px;
     border-radius:50%;
     border:2px solid white;
   }
-  .icon-btn{
-    font-size:34px;
-  }
 
-  /* Username + follow */
-  .info{
-    position:absolute;
-    left:12px;
-    bottom:50px;
-    color:white;
-    z-index:30;
-  }
-
-  .follow-btn{
-    margin-left:8px;
-    padding:4px 10px;
+  .follow {
     background:white;
     color:black;
+    padding:6px 12px;
     border-radius:6px;
-    font-size:14px;
-    cursor:pointer;
+    font-weight:bold;
   }
 
-  /* Center play */
-  .center-play{
+  .actions {
     position:absolute;
-    inset:0;
+    right:20px;
+    bottom:20px;
     display:flex;
-    justify-content:center;
+    flex-direction:column;
     align-items:center;
+    gap:20px;
     z-index:20;
-    pointer-events:none;
-  }
-  .center-play .icon{
-    background:rgba(0,0,0,0.5);
-    padding:18px;
-    border-radius:50%;
-    font-size:22px;
     color:white;
-    pointer-events:auto;
-    cursor:pointer;
+    font-size:30px;
   }
 </style>
 </head>
@@ -111,94 +89,83 @@
 <div class="scroll-container" id="scrollContainer"></div>
 
 <script>
-/* —— SAME VIDEO 4 TIMES —— */
-const videoSrc = "https://i.imgur.com/PxZhK0d.mp4";
-const videoSources = [videoSrc, videoSrc, videoSrc, videoSrc];
+// Your video (4 times)
+const vid = "https://i.imgur.com/PxZhK0d.mp4";
+
+const videos = [vid, vid, vid, vid];
 
 const container = document.getElementById("scrollContainer");
 
-/* Build the 4 reel sections */
-videoSources.forEach((src,i)=>{
-    const sec=document.createElement("section");
-    sec.className="section";
+// Build sections
+videos.forEach((src, i) => {
+  container.innerHTML += `
+    <section class="section">
+      <video 
+        src="${src}" 
+        playsinline 
+        muted 
+        autoplay 
+        preload="auto"
+      ></video>
 
-    const video=document.createElement("video");
-    video.src=src;
-    video.autoplay=true;
-    video.playsInline=true;
-    video.controls=false;
-    video.muted=false;   // SOUND ON
-    video.volume = 1.0;
+      <div class="ui">
+        <div class="profile">
+          <img src="https://i.imgur.com/3G4c6rd.jpeg">
+          <div>
+            <div style="font-weight:bold;">username_here</div>
+            <div class="follow">Follow</div>
+          </div>
+        </div>
+      </div>
 
-    const playOverlay=document.createElement("div");
-    playOverlay.className="center-play";
-    const icon=document.createElement("div");
-    icon.className="icon";
-    icon.textContent="⏵︎";
-    icon.dataset.idx=i;
-    playOverlay.appendChild(icon);
-
-    /* Right-side actions */
-    const actions=document.createElement("div");
-    actions.className="actions";
-
-    actions.innerHTML=`
-      <img src="https://i.imgur.com/9f3hF1o.png">
-      <div class="icon-btn">❤️</div>
-      <div class="icon-btn">💬</div>
-      <div class="icon-btn">↗</div>
-    `;
-
-    /* Username + follow */
-    const info=document.createElement("div");
-    info.className="info";
-    info.innerHTML=`
-      @username 
-      <span class="follow-btn">Follow</span>
-    `;
-
-    sec.appendChild(video);
-    sec.appendChild(playOverlay);
-    sec.appendChild(actions);
-    sec.appendChild(info);
-
-    container.appendChild(sec);
+      <div class="actions">
+        <div>❤️</div>
+        <div>💬</div>
+        <div>➤</div>
+      </div>
+    </section>
+  `;
 });
 
-/* Auto play/pause */
-const videos=[...document.querySelectorAll("video")];
-const observer=new IntersectionObserver((entries)=>{
-    entries.forEach(entry=>{
-        const v=entry.target;
-        if(entry.intersectionRatio>0.5){
-            v.play().catch(()=>{});
-        }else{
-            v.pause();
-        }
-    });
-},{threshold:[0.5]});
-videos.forEach(v=>observer.observe(v));
+// Observe videos and play/pause based on screen
+const allVideos = [];
 
-/* Play/Pause overlay button */
-document.querySelectorAll(".icon").forEach(btn=>{
-    btn.addEventListener("click",(e)=>{
-        e.stopPropagation();
-        const vid=videos[btn.dataset.idx];
-        if(vid.paused){ vid.play(); btn.textContent="⏸"; }
-        else{ vid.pause(); btn.textContent="⏵︎"; }
-    });
-});
+setTimeout(() => {
+  document.querySelectorAll("video").forEach(v => allVideos.push(v));
 
-/* Tap video to pause/play */
-document.querySelectorAll(".section").forEach((sec,idx)=>{
-    sec.addEventListener("click",(e)=>{
-        if(e.target.classList.contains("icon")) return;
-        const v=videos[idx];
-        if(v.paused) v.play();
-        else v.pause();
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        entry.target.play().catch(()=>{});
+      } else {
+        entry.target.pause();
+      }
     });
-});
+  }, { threshold: 0.7 });
+
+  allVideos.forEach(v => observer.observe(v));
+
+}, 300);
+
+// Auto unmute after 2s (requires ONE tap due to mobile policy)
+let interacted = false;
+
+const enableSound = () => {
+  if (interacted) return;
+  interacted = true;
+
+  setTimeout(() => {
+    allVideos.forEach(v => {
+      v.muted = false;
+      v.volume = 1.0;
+    });
+  }, 2000);
+};
+
+// First touch = unlock audio
+document.addEventListener("touchstart", enableSound, { once:true });
+document.addEventListener("click", enableSound, { once:true });
+
 </script>
-
 </body>
 </html>
