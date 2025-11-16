@@ -2,142 +2,533 @@
 <html lang="en">
 <head>
 <meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no" />
-<title>Auto-Scroll Reel</title>
-
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+<title>4-Video Auto-Scroll Reel (Imgur)</title>
 <style>
-  html, body {
-    margin:0;
+  :root{
+    --bg:#000;
+    --muted-btn: rgba(255,255,255,0.06);
+    --accent: #ff2d55;
+    --ui-size: 14px;
+  }
+  html,body{
     height:100%;
-    overflow:hidden;
-    background:#000;
-    font-family:sans-serif;
+    margin:0;
+    background:var(--bg);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+    color:#fff;
+    -webkit-text-size-adjust:100%;
+    -webkit-font-smoothing:antialiased;
   }
 
-  .container {
+  /* Scroll container */
+  .scroll-container{
     height:100vh;
     width:100vw;
-    overflow-y:scroll;
+    overflow-y:auto;
     scroll-snap-type:y mandatory;
+    -webkit-overflow-scrolling:touch;
+    touch-action:pan-y;
   }
 
-  .reel {
-    height:100vh;
-    width:100vw;
+  /* Section each full screen */
+  .section{
     position:relative;
+    width:100%;
+    height:100vh;
     scroll-snap-align:start;
     background:#000;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    overflow:hidden;
   }
 
-  .reel video {
+  /* full-bleed video */
+  video{
     position:absolute;
     top:50%;
     left:50%;
     transform:translate(-50%,-50%);
-    height:100%;
+    min-width:100%;
+    min-height:100%;
     width:auto;
+    height:auto;
     object-fit:cover;
+    background: #000;
   }
 
-  /* Fake Instagram buttons */
+  /* UI overlay: right column & top-left profile */
   .ui {
     position:absolute;
-    right:10px;
-    bottom:80px;
+    right:12px;
+    bottom:24%;
+    z-index:5;
     display:flex;
     flex-direction:column;
-    gap:20px;
-    z-index:20;
+    gap:18px;
+    align-items:center;
+    pointer-events:none; /* so taps fall through except on controls themselves */
   }
 
-  .btn {
-    font-size:24px;
+  .ui button, .ui .action {
+    pointer-events:auto;
+    background:rgba(0,0,0,0.35);
+    border:0;
+    width:56px;
+    height:56px;
+    border-radius:14px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    color:#fff;
+    font-size:18px;
+    cursor:pointer;
+    box-shadow: 0 6px 18px rgba(0,0,0,0.5);
+  }
+
+  .ui .count {
+    font-size:12px;
+    margin-top:6px;
+    color:#fff;
+  }
+
+  /* profile area */
+  .profile {
+    position:absolute;
+    left:12px;
+    bottom:18%;
+    display:flex;
+    gap:12px;
+    align-items:center;
+    z-index:5;
+    pointer-events:none;
+  }
+
+  .profile .avatar {
+    width:48px;
+    height:48px;
+    border-radius:50%;
+    background:linear-gradient(45deg,#ff7a7a,#ff2d55);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-weight:700;
     color:white;
-    text-align:center;
+    box-shadow:0 6px 20px rgba(0,0,0,0.6);
+    pointer-events:auto;
+  }
+
+  .profile .meta {
+    display:flex;
+    flex-direction:column;
+    gap:6px;
+    color:#fff;
+    pointer-events:auto;
+  }
+
+  .profile .username { font-weight:700; font-size:16px; }
+  .profile .follow {
+    background:var(--accent);
+    color:#fff;
+    padding:6px 10px;
+    border-radius:12px;
+    font-size:13px;
+    cursor:pointer;
+    border:0;
+    pointer-events:auto;
+  }
+
+  /* header small message */
+  .message {
+    position:fixed;
+    top:12px;
+    left:50%;
+    transform:translateX(-50%);
+    z-index:10;
+    background:rgba(255,255,255,0.06);
+    padding:8px 12px;
+    border-radius:999px;
+    font-size:13px;
+    display:flex;
+    gap:8px;
+    align-items:center;
+  }
+
+  /* Unmute hint button */
+  .unmute-cta {
+    position:fixed;
+    left:50%;
+    transform:translateX(-50%);
+    bottom:18px;
+    z-index:12;
+    background:var(--accent);
+    color:white;
+    border:0;
+    padding:12px 18px;
+    border-radius:999px;
+    font-weight:700;
+    box-shadow:0 8px 30px rgba(0,0,0,0.5);
+    display:none; /* shown only if auto-unmute failed */
     cursor:pointer;
   }
 
-  .profile {
-    position:absolute;
-    left:10px;
-    bottom:20px;
-    color:white;
-    font-size:18px;
-    z-index:20;
+  /* small helper for accessibility */
+  .sr-only { position:absolute; left:-9999px; top:auto; width:1px; height:1px; overflow:hidden; }
+
+  /* Make icons and counts compact on small screens */
+  @media (max-width:420px){
+    .ui button { width:48px; height:48px; border-radius:12px; }
+    .profile .avatar { width:40px; height:40px; }
+    .profile .username { font-size:14px; }
   }
 </style>
 </head>
-
 <body>
-
-<div class="container" id="scrollArea">
-
-  <!-- Reel 1 -->
-  <div class="reel">
-    <video playsinline autoplay muted src="https://i.imgur.com/PxZhK0d.mp4"></video>
-    <div class="ui">
-      <div class="btn">❤️</div>
-      <div class="btn">💬</div>
-      <div class="btn">➕</div>
-    </div>
-    <div class="profile">Khankimagi</div>
+  <div class="message" id="infoMessage">
+    Auto-scroll will try to start audio. If nothing heard, tap “Enable Sound”.
   </div>
 
-  <!-- Reel 2 -->
-  <div class="reel">
-    <video playsinline autoplay muted src="https://i.imgur.com/PxZhK0d.mp4"></video>
-    <div class="ui">
-      <div class="btn">❤️</div>
-      <div class="btn">💬</div>
-      <div class="btn">➕</div>
-    </div>
-    <div class="profile">Khankimagi</div>
-  </div>
+  <!-- Unmute CTA shown when automatic unmute fails -->
+  <button id="unmuteCta" class="unmute-cta" aria-hidden="true">Enable Sound</button>
 
-  <!-- Reel 3 -->
-  <div class="reel">
-    <video playsinline autoplay muted src="https://i.imgur.com/PxZhK0d.mp4"></video>
-    <div class="ui">
-      <div class="btn">❤️</div>
-      <div class="btn">💬</div>
-      <div class="btn">➕</div>
-    </div>
-    <div class="profile">Khankimagi</div>
-  </div>
+  <div class="scroll-container" id="scrollContainer" aria-live="polite" aria-label="Video reel scroll container">
+    <!-- Four sections all using same Imgur mp4 -->
+    <section class="section" id="s1" data-title="Reel 1">
+      <video id="v1" playsinline autoplay muted loop preload="auto" src="https://i.imgur.com/PxZhK0d.mp4"></video>
 
-  <!-- Reel 4 -->
-  <div class="reel">
-    <video playsinline autoplay muted src="https://i.imgur.com/PxZhK0d.mp4"></video>
-    <div class="ui">
-      <div class="btn">❤️</div>
-      <div class="btn">💬</div>
-      <div class="btn">➕</div>
-    </div>
-    <div class="profile">Khankimagi</div>
-  </div>
+      <div class="ui" aria-hidden="false">
+        <div style="display:flex;flex-direction:column;align-items:center;">
+          <button class="action" id="like1" aria-label="Like">♡</button>
+          <div class="count" id="likeCount1">1.2k</div>
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:center;">
+          <button class="action" id="comment1" aria-label="Comment">💬</button>
+          <div class="count" id="commentCount1">342</div>
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:center;">
+          <button class="action" id="share1" aria-label="Share">↗</button>
+          <div class="count" id="shareCount1">Share</div>
+        </div>
+      </div>
 
-</div>
+      <div class="profile" aria-hidden="false">
+        <div class="avatar" id="avatar1">AB</div>
+        <div class="meta">
+          <div style="display:flex;gap:8px;align-items:center">
+            <div class="username">awesome.brand</div>
+            <button class="follow" id="follow1">Follow</button>
+          </div>
+          <div style="font-size:13px;opacity:0.95">Caption for Reel #1 • #hashtag</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- section 2 -->
+    <section class="section" id="s2" data-title="Reel 2">
+      <video id="v2" playsinline autoplay muted loop preload="auto" src="https://i.imgur.com/PxZhK0d.mp4"></video>
+
+      <div class="ui">
+        <div style="display:flex;flex-direction:column;align-items:center;">
+          <button class="action" id="like2">♡</button>
+          <div class="count" id="likeCount2">742</div>
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:center;">
+          <button class="action" id="comment2">💬</button>
+          <div class="count" id="commentCount2">121</div>
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:center;">
+          <button class="action" id="share2">↗</button>
+          <div class="count" id="shareCount2">Share</div>
+        </div>
+      </div>
+
+      <div class="profile">
+        <div class="avatar" id="avatar2">CD</div>
+        <div class="meta">
+          <div style="display:flex;gap:8px;align-items:center">
+            <div class="username">creative.dev</div>
+            <button class="follow" id="follow2">Follow</button>
+          </div>
+          <div style="font-size:13px;opacity:0.95">Caption for Reel #2 • #fun</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- section 3 -->
+    <section class="section" id="s3" data-title="Reel 3">
+      <video id="v3" playsinline autoplay muted loop preload="auto" src="https://i.imgur.com/PxZhK0d.mp4"></video>
+
+      <div class="ui">
+        <div style="display:flex;flex-direction:column;align-items:center;">
+          <button class="action" id="like3">♡</button>
+          <div class="count" id="likeCount3">3.4k</div>
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:center;">
+          <button class="action" id="comment3">💬</button>
+          <div class="count" id="commentCount3">1.1k</div>
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:center;">
+          <button class="action" id="share3">↗</button>
+          <div class="count" id="shareCount3">Share</div>
+        </div>
+      </div>
+
+      <div class="profile">
+        <div class="avatar" id="avatar3">EF</div>
+        <div class="meta">
+          <div style="display:flex;gap:8px;align-items:center">
+            <div class="username">engage.fit</div>
+            <button class="follow" id="follow3">Follow</button>
+          </div>
+          <div style="font-size:13px;opacity:0.95">Caption for Reel #3 • #demo</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- section 4 -->
+    <section class="section" id="s4" data-title="Reel 4">
+      <video id="v4" playsinline autoplay muted loop preload="auto" src="https://i.imgur.com/PxZhK0d.mp4"></video>
+
+      <div class="ui">
+        <div style="display:flex;flex-direction:column;align-items:center;">
+          <button class="action" id="like4">♡</button>
+          <div class="count" id="likeCount4">9.9k</div>
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:center;">
+          <button class="action" id="comment4">💬</button>
+          <div class="count" id="commentCount4">2.0k</div>
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:center;">
+          <button class="action" id="share4">↗</button>
+          <div class="count" id="shareCount4">Share</div>
+        </div>
+      </div>
+
+      <div class="profile">
+        <div class="avatar" id="avatar4">GH</div>
+        <div class="meta">
+          <div style="display:flex;gap:8px;align-items:center">
+            <div class="username">great.hits</div>
+            <button class="follow" id="follow4">Follow</button>
+          </div>
+          <div style="font-size:13px;opacity:0.95">Caption for Reel #4 • #outro</div>
+        </div>
+      </div>
+    </section>
+  </div>
 
 <script>
-const scrollArea = document.getElementById("scrollArea");
+  // Elements and videos
+  const videos = [
+    document.getElementById('v1'),
+    document.getElementById('v2'),
+    document.getElementById('v3'),
+    document.getElementById('v4')
+  ];
+  const scrollContainer = document.getElementById('scrollContainer');
+  const unmuteCta = document.getElementById('unmuteCta');
+  const infoMessage = document.getElementById('infoMessage');
 
-// AUTOSCROLL after 1 second
-setTimeout(() => {
-  scrollArea.scrollTo({
-    top: window.innerHeight,
-    behavior: "smooth"
+  // Make sure videos keep playing even after scroll (we won't pause them)
+  videos.forEach(v=>{
+    // ensure autoplay attempt
+    v.play().catch(()=>{ /* ignore - will require gesture in many browsers */ });
   });
 
-  // after scroll finishes → unmute all videos
-  setTimeout(() => {
-    document.querySelectorAll("video").forEach(v => {
-      v.muted = false;
-      v.play().catch(()=>{});
+  // Auto-scroll behavior:
+  // - after 1 second, scroll to the second section to ensure a video is "in-focus"
+  // - user asked for this so audio could start
+  setTimeout(()=> {
+    // Scroll to second section smoothly
+    const second = document.getElementById('s2');
+    if(second){
+      second.scrollIntoView({behavior:'smooth'});
+    }
+  }, 1000);
+
+  // Attempt to unmute after 2 seconds
+  // NOTE: Most browsers will BLOCK unmute/play with sound unless there was a user gesture.
+  // We try it anyway; if it fails, we show the fallback CTA to let the user tap.
+  function tryAutoUnmute(){
+    let successCount = 0;
+    videos.forEach(async (v) => {
+      try {
+        // set desired volume and unmute
+        v.muted = false;
+        v.volume = 1.0;
+        // Try to play (may be ignored)
+        await v.play();
+        successCount++;
+      } catch (err) {
+        // failed - browser denied autoplay with audio
+        // keep muted = true so there's no noise
+        v.muted = true;
+      }
     });
-  }, 900);
 
-}, 1000);
+    // If none succeeded, show manual CTA
+    if (successCount === 0) {
+      // Show CTA to user
+      unmuteCta.style.display = 'block';
+      unmuteCta.setAttribute('aria-hidden','false');
+      infoMessage.textContent = 'Tap "Enable Sound" to turn audio on (required by some mobile browsers).';
+    } else {
+      infoMessage.textContent = 'Audio started automatically (if your browser allowed it).';
+      // hide CTA if visible
+      unmuteCta.style.display = 'none';
+    }
+  }
+
+  setTimeout(tryAutoUnmute, 2000);
+
+  // Manual unmute button (user interaction guaranteed)
+  unmuteCta.addEventListener('click', async () => {
+    unmuteCta.disabled = true;
+    let any = false;
+    for (const v of videos) {
+      try {
+        v.muted = false;
+        v.volume = 1.0;
+        await v.play();
+        any = true;
+      } catch(e) {
+        // still may fail but unlikely after user gesture
+      }
+    }
+    if(any){
+      unmuteCta.style.display = 'none';
+      infoMessage.textContent = 'Sound enabled';
+    } else {
+      unmuteCta.disabled = false;
+      infoMessage.textContent = 'Could not enable sound automatically — try tapping a video.';
+    }
+  });
+
+  // Small UI interactions: like/comment/follow toggles (example)
+  function setupSimpleUi(id){
+    const likeBtn = document.getElementById('like'+id);
+    const commentBtn = document.getElementById('comment'+id);
+    const followBtn = document.getElementById('follow'+id);
+    const likeCount = document.getElementById('likeCount'+id);
+
+    // Toggle like
+    if(likeBtn){
+      likeBtn.addEventListener('click', (e)=>{
+        e.stopPropagation();
+        likeBtn.classList.toggle('liked');
+        likeBtn.textContent = likeBtn.classList.contains('liked') ? '♥' : '♡';
+        // simple increment/decrement visual (not persistent)
+        let current = parseLikes(likeCount.textContent);
+        if(likeBtn.classList.contains('liked')) current++;
+        else current = Math.max(0, current-1);
+        likeCount.textContent = formatLikes(current);
+      });
+    }
+
+    // Comment button: just a visual bounce
+    if(commentBtn){
+      commentBtn.addEventListener('click', (e)=>{
+        e.stopPropagation();
+        commentBtn.animate([{transform:'scale(1)'},{transform:'scale(1.15)'},{transform:'scale(1)'}],{duration:300});
+      });
+    }
+
+    // Follow toggle
+    if(followBtn){
+      followBtn.addEventListener('click', (e)=>{
+        e.stopPropagation();
+        followBtn.classList.toggle('following');
+        followBtn.textContent = followBtn.classList.contains('following') ? 'Following' : 'Follow';
+        followBtn.style.background = followBtn.classList.contains('following') ? 'rgba(255,255,255,0.08)' : '';
+        followBtn.style.color = followBtn.classList.contains('following') ? '#fff' : '#fff';
+      });
+    }
+  }
+
+  function parseLikes(str){
+    // parse like strings like "1.2k"
+    if(typeof str !== 'string') return 0;
+    if(str.endsWith('k')) return Math.round(parseFloat(str.replace('k',''))*1000);
+    return parseInt(str.replace(/\D/g,'')) || 0;
+  }
+  function formatLikes(n){
+    if(n >= 1000) return (n/1000).toFixed(n>=10000?0:1)+'k';
+    return n.toString();
+  }
+
+  // Setup for four sections
+  setupSimpleUi(1);
+  setupSimpleUi(2);
+  setupSimpleUi(3);
+  setupSimpleUi(4);
+
+  // Prevent videos from being paused by anything else (for user's request)
+  // We remove IntersectionObserver pause logic and don't auto-pause on scroll.
+  // But we still allow user controls (tap the native controls to pause).
+  // To ensure videos continue playing when they come into view after auto-scroll,
+  // resume play attempts:
+  window.addEventListener('scroll', () => {
+    // If a video is visible enough, ensure it's playing.
+    // We won't pause others.
+    const midY = window.scrollY + window.innerHeight/2;
+    videos.forEach(v=>{
+      const rect = v.getBoundingClientRect();
+      const absTop = window.scrollY + rect.top + rect.height/2;
+      const dist = Math.abs(absTop - midY);
+      if(dist < window.innerHeight/2){ // roughly visible near center
+        v.play().catch(()=>{ /* ignore */ });
+      }
+    });
+  }, {passive:true});
+
+  // Prevent accidental long-press zoom on mobile affecting behavior
+  let touchStartTs = 0;
+  window.addEventListener('touchstart',(e)=>{ touchStartTs = Date.now(); }, {passive:true});
+  window.addEventListener('touchend',(e)=>{ if(Date.now()-touchStartTs > 600) e.preventDefault(); }, {passive:false});
+
+  // Accessibility: allow spacebar to toggle play of the centered video
+  window.addEventListener('keydown', (e)=>{
+    if(e.code === 'Space'){
+      e.preventDefault();
+      // pick centered video
+      const midY = window.scrollY + window.innerHeight/2;
+      let best = null;
+      let bestDist = Infinity;
+      videos.forEach(v=>{
+        const rect = v.getBoundingClientRect();
+        const center = window.scrollY + rect.top + rect.height/2;
+        const d = Math.abs(center - midY);
+        if(d < bestDist){
+          bestDist = d;
+          best = v;
+        }
+      });
+      if(best){
+        if(best.paused) best.play();
+        else best.pause();
+      }
+    }
+  });
+
+  // On initial load: small safety to allow auto-play attempts on some browsers
+  // by doing a brief programmatic play on each video (already attempted above).
+  document.addEventListener('visibilitychange', () => {
+    if(document.visibilityState === 'visible'){
+      videos.forEach(v => v.play().catch(()=>{}));
+    }
+  });
+
+  // If you want continuous auto-scrolling (cycle through reels) uncomment the block below.
+  // Be careful: automatic continuous scrolling can be annoying for users and may interrupt interactions.
+  /*
+  let currentIndex = 0;
+  setInterval(()=>{
+    currentIndex = (currentIndex+1) % videos.length;
+    const sec = document.getElementById('s'+(currentIndex+1));
+    if(sec) sec.scrollIntoView({behavior:'smooth'});
+  }, 6000); // change every 6s
+  */
 </script>
-
 </body>
 </html>
