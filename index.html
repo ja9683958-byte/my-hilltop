@@ -22,7 +22,7 @@
   <section class="section"><div class="video-wrap"><video data-index="4" playsinline loop autoplay muted preload="auto" src="https://i.imgur.com/PxZhK0d.mp4"></video></div></section>
 
   <div class="badge">Scroll to switch videos — only the visible one plays</div>
-  <button class="unmute-btn" id="unmuteBtn" aria-pressed="false">Unmute</button>
+  
 
   <script>
     // Behavior:
@@ -32,56 +32,7 @@
     // - A persistent Unmute button allows the user to unmute if autoplay policies block programmatic unmute.
 
     const videos = Array.from(document.querySelectorAll('video'));
-    const unmuteBtn = document.getElementById('unmuteBtn');
-    let userInteracted = false;
-
-    // IntersectionObserver to play the video which is mostly visible
-    const obs = new IntersectionObserver((entries)=>{
-      entries.forEach(entry=>{
-        const v = entry.target;
-        if(entry.intersectionRatio > 0.6){
-          // Make sure it plays
-          v.play().catch(()=>{});
-        } else {
-          v.pause();
-        }
-      });
-    },{threshold:[0.0,0.25,0.5,0.75,1.0]});
-
-    videos.forEach(v=>{
-      // Ensure muted autoplay as required for most browsers
-      v.muted = true;
-      v.volume = 1.0;
-      v.addEventListener('canplay', ()=>{
-        // try to play when can
-        v.play().catch(()=>{});
-      });
-      obs.observe(v);
-    });
-
-    // Try to unmute on first explicit user interaction (scroll/click/tap/keydown)
-    function firstInteractionHandler(e){
-      if(userInteracted) return;
-      userInteracted = true;
-      // unmute the currently visible video (the one that is not paused)
-      const visible = videos.find(v => !v.paused) || videos[0];
-      try {
-        visible.muted = false;
-        visible.play().catch(()=>{});
-        unmuteBtn.setAttribute('aria-pressed','true');
-        unmuteBtn.textContent = 'Muted? Click to toggle';
-      } catch(err){
-        // Some browsers still prevent programmatic unmute; leave button for manual toggle
-        console.warn('Could not unmute programmatically', err);
-      }
-
-      // remove listeners after first interaction
-      ['wheel','touchstart','keydown','click'].forEach(ev=>window.removeEventListener(ev, firstInteractionHandler));
-    }
-
-    ['wheel','touchstart','keydown','click'].forEach(ev=>window.addEventListener(ev, firstInteractionHandler, {passive:true}));
-
-    // Unmute button toggles mute on the currently visible video
+    // Unmute button removed — attempt background unmute only on the currently visible video
     unmuteBtn.addEventListener('click', ()=>{
       const visible = videos.find(v => !v.paused) || videos[0];
       visible.muted = !visible.muted;
