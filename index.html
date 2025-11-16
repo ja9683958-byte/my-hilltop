@@ -3,24 +3,39 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>4-Video Scroll Landing — Fixed (first video won't stop)</title>
+<title>4-Video Scroll Landing — hidden scrollbar, parallax fade, dots, locked wheel</title>
 <style>
+  :root{
+    --dot-size:12px;
+    --dot-gap:12px;
+    --accent:#fff;
+  }
+
   html,body {
     margin:0;
     height:100%;
     background:#000;
     font-family:Arial, sans-serif;
     color:#fff;
+    overscroll-behavior-y: none; /* prevents bounce interfering */
   }
 
+  /* ---- CONTAINER ---- */
   .scroll-container {
     height:100vh;
     width:100vw;
     overflow-y:auto;
     scroll-snap-type:y mandatory;
     -webkit-overflow-scrolling: touch;
-  }
+    position:relative;
 
+    /* Hide scrollbar */
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .scroll-container::-webkit-scrollbar { display:none; }
+
+  /* ---- SECTION + 16:9 WRAPPER ---- */
   .section {
     height:100vh;
     width:100%;
@@ -30,6 +45,7 @@
     display:flex;
     justify-content:center;
     align-items:center;
+    pointer-events:auto;
   }
 
   .video-wrapper {
@@ -42,6 +58,17 @@
     background:#000;
     border-radius: 8px;
     box-shadow: 0 8px 30px rgba(0,0,0,0.6);
+    transform-origin: center center;
+    will-change: transform, opacity;
+    transition: transform 700ms cubic-bezier(.2,.9,.2,1), opacity 700ms ease;
+    opacity: 0.65;
+    transform: scale(0.985) translateY(10px);
+  }
+
+  /* 'active' / in-view style for parallax/fade */
+  .video-wrapper.active {
+    opacity: 1;
+    transform: scale(1) translateY(0);
   }
 
   .video-wrapper video {
@@ -52,6 +79,7 @@
     background:#000;
   }
 
+  /* center play overlay */
   .center-play {
     position:absolute;
     inset:0;
@@ -73,19 +101,86 @@
     user-select:none;
   }
 
+  /* subtle top gradient to emphasize depth */
+  .top-gradient {
+    pointer-events:none;
+    position:fixed;
+    left:0;
+    right:0;
+    top:0;
+    height:12vh;
+    background: linear-gradient(180deg, rgba(0,0,0,0.6), rgba(0,0,0,0));
+    z-index:30;
+  }
+
+  /* ---- DOT NAV ---- */
+  .dots {
+    position: fixed;
+    right: 18px;
+    top: 50%;
+    transform: translateY(-50%);
+    display:flex;
+    flex-direction:column;
+    gap: var(--dot-gap);
+    z-index:40;
+    user-select:none;
+  }
+  .dot {
+    width: var(--dot-size);
+    height: var(--dot-size);
+    border-radius:50%;
+    background: rgba(255,255,255,0.25);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.6);
+    cursor:pointer;
+    transition: transform 300ms ease, background 300ms ease;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+  }
+  .dot.active {
+    background: var(--accent);
+    transform: scale(1.12);
+  }
+  .dot:focus { outline: 2px solid rgba(255,255,255,0.12); }
+
+  /* small label for accessibility on hover (desktop) */
+  .dot:hover::after {
+    content: attr(data-label);
+    position: absolute;
+    right: calc(100% + 14px);
+    background: rgba(0,0,0,0.6);
+    padding:6px 8px;
+    border-radius:6px;
+    font-size:12px;
+    white-space:nowrap;
+    transform-origin: center right;
+  }
+
+  /* Responsive for tight widths */
   @media (max-aspect-ratio: 16/9) {
     .video-wrapper {
       width: 100%;
       height: calc(100vw * (9 / 16));
     }
+    .dots { right: 8px; }
   }
+
+  /* small: prevent text selection while using wheel lock behavior */
+  .no-select { user-select:none; -webkit-user-select:none; -ms-user-select:none; }
+
 </style>
 </head>
-<body>
+<body class="no-select">
 
-<div class="scroll-container" id="scrollContainer"></div>
+<div class="top-gradient" aria-hidden="true"></div>
+
+<div class="scroll-container" id="scrollContainer" tabindex="0" aria-label="Video scroll container"></div>
+
+<!-- DOT NAV -->
+<nav class="dots" id="dotsNav" aria-label="Section navigation"></nav>
 
 <script>
+/* ========== CONFIG ========== */
 /* Replace with your Imgur mp4 links */
 const videoSources = [
   "https://i.imgur.com/PxZhK0d.mp4",
@@ -94,34 +189,39 @@ const videoSources = [
   "https://i.imgur.com/PxZhK0d.mp4"
 ];
 
-const container = document.getElementById("scrollContainer");
+const SCROLL_DEBOUNCE_MS = 650; // wheel lock throttle timing
+const AUTO_SCROLL_DELAY_MS = 1500; // initial auto scroll + unmute
 
-// Build sections
+/* ========== BUILD DOM ========== */
+const container = document.getElementById('scrollContainer');
+const dotsNav = document.getElementById('dotsNav');
+
 videoSources.forEach((src, i) => {
-  const section = document.createElement("section");
-  section.className = "section";
+  const section = document.createElement('section');
+  section.className = 'section';
+  section.setAttribute('data-index', i);
 
-  const wrapper = document.createElement("div");
-  wrapper.className = "video-wrapper";
+  const wrapper = document.createElement('div');
+  wrapper.className = 'video-wrapper';
 
-  const video = document.createElement("video");
+  const video = document.createElement('video');
   video.src = src;
   video.playsInline = true;
   video.autoplay = true;
-  video.muted = true;            // start muted to allow autoplay reliably
+  video.muted = true;            // start muted for autoplay reliability
   video.controls = true;
-  video.preload = "auto";        // preload for smoother playback
+  video.preload = 'auto';        // smoother playback
   video.dataset.index = i;
 
-  // mark the first video so observer won't pause it
-  if (i === 0) video.dataset.keepPlaying = "true";
+  // keep first video playing even when out of view
+  if (i === 0) video.dataset.keepPlaying = 'true';
 
-  const playOverlay = document.createElement("div");
-  playOverlay.className = "center-play";
+  const playOverlay = document.createElement('div');
+  playOverlay.className = 'center-play';
 
-  const icon = document.createElement("div");
-  icon.className = "icon";
-  icon.textContent = "⏵︎";
+  const icon = document.createElement('div');
+  icon.className = 'icon';
+  icon.textContent = '⏵︎';
   icon.dataset.videoIndex = i;
 
   playOverlay.appendChild(icon);
@@ -129,115 +229,222 @@ videoSources.forEach((src, i) => {
   wrapper.appendChild(playOverlay);
   section.appendChild(wrapper);
   container.appendChild(section);
+
+  // create dot
+  const dot = document.createElement('button');
+  dot.className = 'dot';
+  dot.setAttribute('aria-label', `Go to section ${i+1}`);
+  dot.dataset.target = i;
+  dot.dataset.label = `Section ${i+1}`;
+  dot.addEventListener('click', (e) => {
+    e.stopPropagation();
+    scrollToSection(i);
+  });
+  dotsNav.appendChild(dot);
 });
 
-// collect videos AFTER DOM creation
-const videos = Array.from(document.querySelectorAll("video"));
+/* ========== collect elements ========== */
+const sections = Array.from(document.querySelectorAll('.section'));
+const wrappers = Array.from(document.querySelectorAll('.video-wrapper'));
+const videos = Array.from(document.querySelectorAll('video'));
+const dots = Array.from(document.querySelectorAll('.dot'));
 
-// IntersectionObserver: auto-play when mostly visible, BUT do NOT pause the first video (keepPlaying)
-const observer = new IntersectionObserver((entries) => {
+/* ========== IntersectionObserver for active visual + auto-play/pause (but keep first playing) ========== */
+const io = new IntersectionObserver((entries) => {
   entries.forEach(entry => {
-    const vid = entry.target;
-    const keepPlaying = vid.dataset.keepPlaying === "true";
+    const wrapper = entry.target.querySelector('.video-wrapper') || entry.target;
+    const vid = entry.target.querySelector('video');
+    const keepPlaying = vid && vid.dataset.keepPlaying === 'true';
 
     if (entry.intersectionRatio > 0.5) {
-      // play when mostly visible
-      vid.play().catch(() => {});
+      // mark wrapper active for parallax/fade
+      wrapper.classList.add('active');
+
+      // play video if not playing
+      vid && vid.play().catch(()=>{});
     } else {
-      // only pause if NOT marked keepPlaying
+      wrapper.classList.remove('active');
+
+      // pause only if not 'keepPlaying'
       if (!keepPlaying) {
-        if (!vid.paused) vid.pause();
+        vid && !vid.paused && vid.pause();
       }
     }
   });
 }, { threshold: [0.5] });
 
-videos.forEach(v => observer.observe(v));
+sections.forEach(s => io.observe(s));
 
-// overlay manual play/pause (also unmutes when user explicitly interacts)
-document.querySelectorAll(".icon").forEach(icon => {
-  icon.addEventListener("click", (e) => {
-    e.stopPropagation();
-    const index = Number(icon.dataset.videoIndex);
-    const vid = videos[index];
+/* ========== Play/pause overlay interactions (unmute on user action) ========== */
+document.querySelectorAll('.icon').forEach(iconEl => {
+  iconEl.addEventListener('click', (ev) => {
+    ev.stopPropagation();
+    const idx = Number(iconEl.dataset.videoIndex);
+    const vid = videos[idx];
 
     if (vid.paused) {
-      vid.muted = false; // user gesture - safe to unmute
-      vid.play().catch(() => {});
-      icon.textContent = "⏸️";
+      vid.muted = false; // user gesture -> safe to unmute
+      vid.play().catch(()=>{});
+      iconEl.textContent = '⏸️';
     } else {
       vid.pause();
-      icon.textContent = "⏵︎";
+      iconEl.textContent = '⏵︎';
     }
   });
 });
 
 // clicking the section toggles play/pause and unmutes (user gesture)
-document.querySelectorAll(".section").forEach((section, index) => {
-  section.addEventListener("click", (e) => {
-    if (e.target.classList.contains("icon")) return;
+sections.forEach((section, index) => {
+  section.addEventListener('click', (e) => {
+    if (e.target.classList.contains('icon')) return;
     const vid = videos[index];
-
+    if (!vid) return;
     if (vid.paused) {
       vid.muted = false;
-      vid.play().catch(() => {});
+      vid.play().catch(()=>{});
     } else {
       vid.pause();
     }
   });
 });
 
-/* AUTO SCROLL + UNMUTE FIRST VIDEO AFTER 1.5s
-   This runs once. The first video is marked keepPlaying so the observer won't pause it.
-*/
-function autoScrollAndUnmuteFirst() {
-  // if there's a next section, scroll to it
-  const secondSection = container.children[1];
-  if (secondSection) {
-    container.scrollTo({
-      top: secondSection.offsetTop,
-      behavior: 'smooth'
-    });
-  } else {
-    // fallback: scroll by one viewport height
-    container.scrollTo({
-      top: container.clientHeight,
-      behavior: 'smooth'
-    });
-  }
+/* ========== DOTS: highlight active based on center of viewport ========== */
+function updateActiveDot() {
+  // find section whose center is closest to viewport center
+  const cx = window.innerHeight / 2;
+  let bestIndex = 0;
+  let bestDist = Infinity;
+  sections.forEach((s, i) => {
+    const rect = s.getBoundingClientRect();
+    const center = rect.top + rect.height/2;
+    const dist = Math.abs(center - cx);
+    if (dist < bestDist) { bestDist = dist; bestIndex = i; }
+  });
 
+  dots.forEach((d, i) => d.classList.toggle('active', i === bestIndex));
+}
+updateActiveDot();
+window.addEventListener('scroll', () => { requestAnimationFrame(updateActiveDot); }, { passive: true });
+
+/* ========== SCROLL helpers ========== */
+function scrollToSection(index, behavior='smooth'){
+  const sec = sections[index];
+  if (!sec) return;
+  container.scrollTo({ top: sec.offsetTop, behavior });
+}
+
+/* ========== AUTO SCROLL + UNMUTE FIRST AFTER DELAY ========== */
+function autoScrollAndUnmuteFirst() {
+  // scroll to 2nd section if exists
+  if (sections[1]) scrollToSection(1, 'smooth');
+
+  // try to unmute/play first video
   const firstVideo = videos[0];
   if (!firstVideo) return;
 
-  // Attempt to unmute and play first video. If browser blocks sound autoplay,
-  // catch the error and leave the video muted but playing.
   firstVideo.muted = false;
   firstVideo.play().then(() => {
+    // success: update icon
     const icon = document.querySelector('.icon[data-video-index="0"]');
-    if (icon) icon.textContent = "⏸️";
+    if (icon) icon.textContent = '⏸️';
   }).catch((err) => {
+    // browser blocked autoplay with sound: restore muted but keep playing
     console.warn('Autoplay with sound blocked:', err);
-    // restore muted so autoplay remains silent and continuous
     firstVideo.muted = true;
-    // keep it playing silently (autoplay was likely allowed when muted)
-    firstVideo.play().catch(() => {});
+    firstVideo.play().catch(()=>{});
     const icon = document.querySelector('.icon[data-video-index="0"]');
-    if (icon) icon.textContent = "🔈";
+    if (icon) icon.textContent = '🔈';
   });
 }
 
-// single, reliable timeout (1.5s)
-setTimeout(autoScrollAndUnmuteFirst, 1500);
-
-// If user interacts (scroll/touch) before 1.5s, cancel auto behavior
+/* schedule only once, but cancel if user interacts before */
 let userInteracted = false;
 const cancelAuto = () => { userInteracted = true; };
 container.addEventListener('wheel', cancelAuto, { passive: true });
 container.addEventListener('touchstart', cancelAuto, { passive: true });
-container.addEventListener('scroll', () => {
-  if (userInteracted) return;
-  // if user scrolled before the timeout fired, do nothing when timeout fires
-}, { passive: true });
+container.addEventListener('keydown', cancelAuto, { passive: true });
+
+setTimeout(() => {
+  if (!userInteracted) autoScrollAndUnmuteFirst();
+  else console.log('Auto-scroll prevented by user interaction.');
+}, AUTO_SCROLL_DELAY_MS);
+
+/* ========== WHEEL / TRACKPAD LOCK (desktop): translate wheel into discrete snaps ========== */
+let lastWheelTime = 0;
+let wheelLocked = false;
+
+function handleWheelLock(ev){
+  // only apply lock behavior for non-touch devices: if pointer is coarse, skip
+  if (window.matchMedia('(pointer: coarse)').matches) return; // mobile / touch: keep native
+  // ignore if Ctrl key (zoom) or meta/alt
+  if (ev.ctrlKey || ev.metaKey || ev.altKey) return;
+
+  ev.preventDefault();
+
+  const now = Date.now();
+  if (now - lastWheelTime < SCROLL_DEBOUNCE_MS) return; // debounce successive wheels
+  lastWheelTime = now;
+
+  const delta = ev.deltaY;
+  if (delta > 0) {
+    // scroll down -> next
+    const nextIndex = Math.min(sections.length - 1, getCurrentSectionIndex() + 1);
+    if (nextIndex !== getCurrentSectionIndex()) scrollToSection(nextIndex);
+  } else if (delta < 0) {
+    // scroll up -> prev
+    const prevIndex = Math.max(0, getCurrentSectionIndex() - 1);
+    if (prevIndex !== getCurrentSectionIndex()) scrollToSection(prevIndex);
+  }
+}
+
+function getCurrentSectionIndex(){
+  // find the section with largest visible area (or closest to center)
+  const cx = window.innerHeight/2;
+  let best = 0, bestDist = Infinity;
+  sections.forEach((s, i)=>{
+    const rect = s.getBoundingClientRect();
+    const center = rect.top + rect.height/2;
+    const dist = Math.abs(center - cx);
+    if (dist < bestDist){ bestDist = dist; best = i; }
+  });
+  return best;
+}
+
+// attach wheel handler to container (desktop only)
+container.addEventListener('wheel', handleWheelLock, { passive: false });
+
+/* allow keyboard arrows/pageup/pagedown to navigate discretely */
+window.addEventListener('keydown', (e) => {
+  if (e.key === 'ArrowDown' || e.key === 'PageDown') {
+    e.preventDefault();
+    const next = Math.min(sections.length - 1, getCurrentSectionIndex() + 1);
+    scrollToSection(next);
+  } else if (e.key === 'ArrowUp' || e.key === 'PageUp') {
+    e.preventDefault();
+    const prev = Math.max(0, getCurrentSectionIndex() - 1);
+    scrollToSection(prev);
+  }
+});
+
+/* ========== Accessibility: focus indicators for dots via keyboard nav ========== */
+dots.forEach(d => d.addEventListener('keydown', (ev) => {
+  if (ev.key === 'Enter' || ev.key === ' ') {
+    ev.preventDefault();
+    const idx = Number(d.dataset.target);
+    scrollToSection(idx);
+  }
+}));
+
+/* ========== keep dots in sync on load/resize ========== */
+window.addEventListener('resize', () => { requestAnimationFrame(updateActiveDot); }, { passive: true });
+
+/* initial active */
+updateActiveDot();
+
+/* ========== OPTIONAL: allow direct programmatic navigation (API) ==========
+   Example: scrollToSection(2);
+   =================================== */
+window.appScrollToSection = scrollToSection;
 
 </script>
 </body>
