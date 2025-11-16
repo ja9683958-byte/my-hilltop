@@ -3,70 +3,122 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Landing — 4 videos scroll</title>
+  <title>Phone Landing — 4 videos scroll</title>
   <style>
-    :root{--bg:#111;color:#fff}
-    html,body{height:100%;margin:0;background:var(--bg);color:var(--text);font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial}
-    .section{height:100vh;display:grid;place-items:center;overflow:hidden}
-    .video-wrap{position:relative;width:100%;height:100%;}
+    :root{--bg:#000;--fg:#fff}
+    html,body{height:100%;margin:0;background:var(--bg);color:var(--fg);font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial}
+    /* Center the landing and constrain to phone width */
+    .frame{width:100vw;max-width:420px;height:100vh;margin:0 auto;overflow:auto;}
+    .section{height:100vh;display:block;position:relative;overflow:hidden}
+    .video-wrap{position:absolute;inset:0}
     video{width:100%;height:100%;object-fit:cover;display:block}
-    .badge{position:fixed;left:12px;bottom:12px;padding:8px 12px;background:rgba(0,0,0,.5);backdrop-filter:blur(4px);border-radius:10px;color:#fff;font-size:14px}
-    .unmute-btn{position:fixed;right:12px;bottom:12px;padding:10px 14px;border-radius:999px;background:rgba(255,255,255,0.12);border:1px solid rgba(255,255,255,0.08);color:#fff;cursor:pointer}
+    .badge{position:fixed;left:12px;bottom:12px;padding:8px 12px;background:rgba(0,0,0,.5);backdrop-filter:blur(4px);border-radius:10px;color:#fff;font-size:13px}
+    /* accessibility hint (visually hidden) */
+    .sr-only{position:absolute!important;height:1px;width:1px;overflow:hidden;clip:rect(1px,1px,1px,1px);white-space:nowrap}
   </style>
 </head>
 <body>
-  <!-- Four full-screen sections each containing the same video -->
-  <section class="section"><div class="video-wrap"><video data-index="1" playsinline loop autoplay muted preload="auto" src="https://i.imgur.com/PxZhK0d.mp4"></video></div></section>
-  <section class="section"><div class="video-wrap"><video data-index="2" playsinline loop autoplay muted preload="auto" src="https://i.imgur.com/PxZhK0d.mp4"></video></div></section>
-  <section class="section"><div class="video-wrap"><video data-index="3" playsinline loop autoplay muted preload="auto" src="https://i.imgur.com/PxZhK0d.mp4"></video></div></section>
-  <section class="section"><div class="video-wrap"><video data-index="4" playsinline loop autoplay muted preload="auto" src="https://i.imgur.com/PxZhK0d.mp4"></video></div></section>
+  <main class="frame" id="frame">
+    <section class="section"><div class="video-wrap"><video data-index="1" playsinline muted loop autoplay preload="auto" src="https://i.imgur.com/PxZhK0d.mp4"></video></div></section>
+    <section class="section"><div class="video-wrap"><video data-index="2" playsinline muted loop autoplay preload="auto" src="https://i.imgur.com/PxZhK0d.mp4"></video></div></section>
+    <section class="section"><div class="video-wrap"><video data-index="3" playsinline muted loop autoplay preload="auto" src="https://i.imgur.com/PxZhK0d.mp4"></video></div></section>
+    <section class="section"><div class="video-wrap"><video data-index="4" playsinline muted loop autoplay preload="auto" src="https://i.imgur.com/PxZhK0d.mp4"></video></div></section>
+  </main>
 
-  <div class="badge">Scroll to switch videos — only the visible one plays</div>
-  
+  <div class="badge">Phone preview — auto-scroll and background unmute attempt</div>
+  <span class="sr-only" id="a11y">Swipe up to continue</span>
 
   <script>
-    // Behavior:
-    // - Only the intersecting (mostly visible) video plays; others pause.
-    // - Videos autoplay muted (required by browsers). We listen for the first user interaction
-    //   (wheel, touchstart, keydown, or click) to unmute the currently visible video.
-    // - A persistent Unmute button allows the user to unmute if autoplay policies block programmatic unmute.
+    // Behavior changes based on your request:
+    // - Page constrained to phone width (.frame)
+    // - Videos will NOT be paused when offscreen (they all play muted continuously)
+    // - We attempt several background unmute strategies after the auto-scroll from
+    //   the first to the second section (1 second). Browsers may still block sound
+    //   without a real user gesture; this script uses best-effort techniques.
 
     const videos = Array.from(document.querySelectorAll('video'));
-    // Unmute button removed — attempt background unmute only on the currently visible video
-    unmuteBtn.addEventListener('click', ()=>{
-      const visible = videos.find(v => !v.paused) || videos[0];
-      visible.muted = !visible.muted;
-      unmuteBtn.setAttribute('aria-pressed', String(!visible.muted));
-      unmuteBtn.textContent = visible.muted ? 'Unmute' : 'Mute';
-      try { visible.play(); } catch(e){}
+    let autoUnmuted = false;
+
+    // Ensure all videos attempt to play muted immediately
+    videos.forEach(v=>{
+      v.playsInline = true;
+      v.muted = true; // required for autoplay on most browsers
+      v.loop = true;
+      v.setAttribute('preload','auto');
+      v.volume = 1.0;
+      v.play().catch(()=>{});
     });
 
-    // Auto-scroll from the first section to the second after 3 seconds
-    window.addEventListener('load', ()=>{
-      setTimeout(()=>{
-        const second = document.querySelectorAll('.section')[1];
-        if(second) second.scrollIntoView({behavior:'smooth'});
-
-        // Try to unmute the first visible video right after auto-scroll
-        const visible = [...document.querySelectorAll('video')].find(v => !v.paused) || document.querySelector('video');
-        if(visible){
+    // Helper: try to unmute a video and resume playback
+    function tryUnmute(video){
+      try {
+        // Approach 1: WebAudio unlock trick (create a silent buffer) to unlock audio
+        // This sometimes unlocks audio output in browsers if used in response to a gesture.
+        if(window.AudioContext || window.webkitAudioContext){
+          const Ctx = window.AudioContext || window.webkitAudioContext;
           try {
-            visible.muted = false;
-            visible.play().catch(()=>{});
-          } catch(e){}
+            const ctx = new Ctx();
+            // create a silent buffer and play it short-lived
+            const buffer = ctx.createBuffer(1,1,22050);
+            const src = ctx.createBufferSource();
+            src.buffer = buffer;
+            src.connect(ctx.destination);
+            src.start(0);
+            // try to set context running (may remain 'suspended' without gesture)
+            if(typeof ctx.resume === 'function') ctx.resume().catch(()=>{});
+          } catch(e){
+            console.warn('AudioContext unlock failed', e);
+          }
         }
 
-      }, 2000);
+        // Approach 2: unmute the video element directly
+        video.muted = false;
+        // ensure it plays
+        const p = video.play();
+        if(p && p.catch) p.catch(()=>{});
+        autoUnmuted = true;
+        return true;
+      } catch(err){
+        console.warn('tryUnmute failed', err);
+        return false;
+      }
+    }
+
+    // After 1 second, auto-scroll from first to second and attempt to unmute
+    window.addEventListener('load', ()=>{
+      setTimeout(()=>{
+        const sections = document.querySelectorAll('.section');
+        const second = sections[1];
+        if(second){
+          // Smooth scroll inside the phone frame
+          second.scrollIntoView({behavior:'smooth'});
+
+          // Wait for the smooth scroll to progress, then attempt unmute
+          setTimeout(()=>{
+            if(autoUnmuted) return;
+            // Prefer the video now visible (index 2). If not found, fallback to first.
+            const visible = document.querySelector('video[data-index="2"]') || document.querySelector('video');
+            const ok = tryUnmute(visible);
+            if(!ok){
+              // as a fallback, attempt to unmute all videos (best-effort)
+              videos.forEach(v=>{ tryUnmute(v); });
+            }
+          }, 600);
+        }
+      }, 1000);
     });
 
-    // Optional: smooth scroll between sections when user uses wheel / touch
-    // (This is native on most platforms; we keep default behavior.)
-
-    // Accessibility: if JS is disabled, videos will appear but autoplay behavior may vary.
-
-    // Note: Browsers intentionally block automatic unmuting without an explicit user gesture.
-    // This page tries to unmute on the first user gesture (scroll/click/tap/keydown). If a browser
-    // still blocks it, use the Unmute button.
+    // NOTE (important):
+    // Modern browsers intentionally prevent audio from auto-playing with sound
+    // unless the user has interacted with the page (click/touch/keypress). The
+    // script above implements common unlocking strategies (AudioContext, unmute
+    // attempts, playing all videos muted). However, there is no guaranteed way
+    // to force audio to play with sound purely in the background without a
+    // user gesture. If browsers block the unmute, the only reliable remedies are:
+    //  - ask the user to tap/click (a gesture) to enable sound
+    //  - present a visible unmute control the user can press
+    // If you'd like, I can add an ultra-subtle visual prompt that auto-focuses so
+    // a single tap will enable sound with minimal friction.
   </script>
 </body>
 </html>
