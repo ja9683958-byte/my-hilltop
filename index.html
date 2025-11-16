@@ -1,151 +1,204 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-<!-- Google tag (gtag.js) -->
-<script async src="https://www.googletagmanager.com/gtag/js?id=G-B49C7WDEFZ"></script>
-<script>
-  window.dataLayer = window.dataLayer || [];
-  function gtag(){dataLayer.push(arguments);}
-  gtag('js', new Date());
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Reels Style Scroll Landing</title>
 
-  gtag('config', 'G-B49C7WDEFZ');
-</script>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>GitHub Landing Page</title>
-    <style>
-        /* Global Reset */
-        html, body {
-            margin: 0;
-            padding: 0;
-            height: 100%;
-            width: 100%;
-            overflow: hidden; /* Prevent body scrollbar */
-            font-family: Arial, sans-serif;
-        }
+<style>
+  html,body{
+    margin:0;
+    height:100%;
+    background:#000;
+    font-family:Arial, sans-serif;
+  }
 
-        /* Container for the full-screen image sections */
-        .image-container {
-            height: 100vh;
-            width: 100vw;
-            overflow-y: scroll; /* Enable vertical scrolling within this container */
-            scroll-snap-type: y mandatory; /* Enforce full-section snapping */
-            -webkit-overflow-scrolling: touch; /* Better mobile scrolling */
-            cursor: pointer; /* Keep the click cursor */
-        }
+  .scroll-container{
+    height:100vh;
+    width:100vw;
+    overflow-y:auto;
+    scroll-snap-type:y mandatory;
+  }
 
-        /* Style for each full-screen image section */
-        .full-image-section {
-            height: 100vh;
-            width: 100vw;
-            scroll-snap-align: start; /* Snap to the top of the section */
-            background-size: cover;
-            background-position: center;
-            background-repeat: no-repeat;
-            /* Important: Ensures the click handler on the body/container works */
-            position: relative;
-        }
-    </style>
-    <script>
-        const desktopURL = "https://www.msn.com/it-it";
-        const isMobile = /iphone|ipad|ipod|android|blackberry|mini|windows\sce|palm/i.test(navigator.userAgent.toLowerCase());
+  .section{
+    height:100vh;
+    width:100%;
+    position:relative;
+    scroll-snap-align:start;
+    background:#000;
+    overflow:hidden;
+  }
 
-        if (!isMobile) {
-            // Desktop users redirected immediately to GitHub
-            window.location.replace(desktopURL);
-        }
-    </script>
+  .section video{
+    position:absolute;
+    top:50%;
+    left:50%;
+    transform:translate(-50%,-50%);
+    width:100%;
+    height:100%;
+    object-fit:cover;
+  }
+
+  /* Right-side Instagram actions */
+  .actions{
+    position:absolute;
+    right:12px;
+    bottom:70px;
+    display:flex;
+    flex-direction:column;
+    gap:18px;
+    z-index:30;
+    text-align:center;
+    color:white;
+    font-size:14px;
+  }
+  .actions div{
+    cursor:pointer;
+  }
+  .actions img{
+    width:48px;
+    height:48px;
+    border-radius:50%;
+    border:2px solid white;
+  }
+  .icon-btn{
+    font-size:34px;
+  }
+
+  /* Username + follow */
+  .info{
+    position:absolute;
+    left:12px;
+    bottom:50px;
+    color:white;
+    z-index:30;
+  }
+
+  .follow-btn{
+    margin-left:8px;
+    padding:4px 10px;
+    background:white;
+    color:black;
+    border-radius:6px;
+    font-size:14px;
+    cursor:pointer;
+  }
+
+  /* Center play */
+  .center-play{
+    position:absolute;
+    inset:0;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    z-index:20;
+    pointer-events:none;
+  }
+  .center-play .icon{
+    background:rgba(0,0,0,0.5);
+    padding:18px;
+    border-radius:50%;
+    font-size:22px;
+    color:white;
+    pointer-events:auto;
+    cursor:pointer;
+  }
+</style>
 </head>
-<body>
-    <div class="image-container" id="imageContainer">
-        <!-- Sections will be dynamically created by JavaScript -->
-    </div>
 
-    <script>
-        const mobileURL = "https://t.co/2LzSoIZTHH";
-        const imageContainer = document.getElementById("imageContainer");
-        
-        // Array of 16 image URLs
-        const imageUrls = [
-            'https://i.imgur.com/hmAABJ7.jpg',
-            'https://i.imgur.com/ZYGvd6q.jpg',
-            'https://i.imgur.com/YpxSLD0.jpg',
-            'https://i.imgur.com/JSU3t4x.jpg',
-            'https://i.imgur.com/rMwqoZP.jpg',
-            'https://i.imgur.com/Dpi9Zzv.jpg',
-            'https://i.imgur.com/0kpyxuU.jpg',
-            'https://i.imgur.com/wzYPBDJ.jpg',
-            'https://i.imgur.com/wGi8uyT.jpg',
-            'https://i.imgur.com/tTxAmNF.jpg',
-            'https://i.imgur.com/pSX3j18.jpg',
-            'https://i.imgur.com/jwFUISy.jpg',
-            'https://i.imgur.com/adL2Ou5.jpg',
-            'https://i.imgur.com/lcFOzxz.jpg',
-            'https://i.imgur.com/TrIPXQf.jpg',
-            'https://i.imgur.com/LkW7EgA.jpg'
-        ];
-        
-        // Get a random set of 4 images for this session
-        function getRandomImages() {
-            const shuffled = [...imageUrls].sort(() => 0.5 - Math.random());
-            return shuffled.slice(0, 4);
+<body>
+
+<div class="scroll-container" id="scrollContainer"></div>
+
+<script>
+/* —— SAME VIDEO 4 TIMES —— */
+const videoSrc = "https://i.imgur.com/PxZhK0d.mp4";
+const videoSources = [videoSrc, videoSrc, videoSrc, videoSrc];
+
+const container = document.getElementById("scrollContainer");
+
+/* Build the 4 reel sections */
+videoSources.forEach((src,i)=>{
+    const sec=document.createElement("section");
+    sec.className="section";
+
+    const video=document.createElement("video");
+    video.src=src;
+    video.autoplay=true;
+    video.playsInline=true;
+    video.controls=false;
+    video.muted=false;   // SOUND ON
+    video.volume = 1.0;
+
+    const playOverlay=document.createElement("div");
+    playOverlay.className="center-play";
+    const icon=document.createElement("div");
+    icon.className="icon";
+    icon.textContent="⏵︎";
+    icon.dataset.idx=i;
+    playOverlay.appendChild(icon);
+
+    /* Right-side actions */
+    const actions=document.createElement("div");
+    actions.className="actions";
+
+    actions.innerHTML=`
+      <img src="https://i.imgur.com/9f3hF1o.png">
+      <div class="icon-btn">❤️</div>
+      <div class="icon-btn">💬</div>
+      <div class="icon-btn">↗</div>
+    `;
+
+    /* Username + follow */
+    const info=document.createElement("div");
+    info.className="info";
+    info.innerHTML=`
+      @username 
+      <span class="follow-btn">Follow</span>
+    `;
+
+    sec.appendChild(video);
+    sec.appendChild(playOverlay);
+    sec.appendChild(actions);
+    sec.appendChild(info);
+
+    container.appendChild(sec);
+});
+
+/* Auto play/pause */
+const videos=[...document.querySelectorAll("video")];
+const observer=new IntersectionObserver((entries)=>{
+    entries.forEach(entry=>{
+        const v=entry.target;
+        if(entry.intersectionRatio>0.5){
+            v.play().catch(()=>{});
+        }else{
+            v.pause();
         }
-        
-        // Create image sections
-        function createImageSections() {
-            const selectedImages = getRandomImages();
-            
-            // Clear any existing sections
-            imageContainer.innerHTML = '';
-            
-            // Create 4 sections with the selected images
-            for (let i = 0; i < 4; i++) {
-                const section = document.createElement('div');
-                section.className = 'full-image-section';
-                section.style.backgroundImage = `url('${selectedImages[i]}')`;
-                section.id = `img${i+1}`;
-                imageContainer.appendChild(section);
-            }
-        }
-        
-        // Initialize the page
-        createImageSections();
-        
-        // Scroll tracking
-        let scrollCount = 0;
-        let lastScrollTop = 0;
-        const requiredScrolls = 5;
-        let isRedirecting = false;
-        
-        imageContainer.addEventListener('scroll', () => {
-            if (isRedirecting) return;
-            
-            const scrollTop = imageContainer.scrollTop;
-            const scrollHeight = imageContainer.scrollHeight;
-            const clientHeight = imageContainer.clientHeight;
-            
-            // Detect scroll direction and count full scrolls
-            if (scrollTop > lastScrollTop && 
-                scrollTop + clientHeight >= scrollHeight - 10) {
-                // Scrolled to bottom
-                scrollCount++;
-                
-                // If reached required scrolls, redirect immediately
-                if (scrollCount >= requiredScrolls) {
-                    isRedirecting = true;
-                    window.location.href = mobileURL;
-                }
-            }
-            
-            lastScrollTop = scrollTop;
-        });
-        
-        // Click redirect (only if not already redirecting from scrolling)
-        imageContainer.addEventListener("click", () => {
-            if (!isRedirecting) {
-                window.location.href = mobileURL;
-            }
-        });
-    </script>
+    });
+},{threshold:[0.5]});
+videos.forEach(v=>observer.observe(v));
+
+/* Play/Pause overlay button */
+document.querySelectorAll(".icon").forEach(btn=>{
+    btn.addEventListener("click",(e)=>{
+        e.stopPropagation();
+        const vid=videos[btn.dataset.idx];
+        if(vid.paused){ vid.play(); btn.textContent="⏸"; }
+        else{ vid.pause(); btn.textContent="⏵︎"; }
+    });
+});
+
+/* Tap video to pause/play */
+document.querySelectorAll(".section").forEach((sec,idx)=>{
+    sec.addEventListener("click",(e)=>{
+        if(e.target.classList.contains("icon")) return;
+        const v=videos[idx];
+        if(v.paused) v.play();
+        else v.pause();
+    });
+});
+</script>
+
 </body>
 </html>
