@@ -1,451 +1,151 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>4-Video Scroll Landing — hidden scrollbar, parallax fade, dots, locked wheel</title>
-<style>
-  :root{
-    --dot-size:12px;
-    --dot-gap:12px;
-    --accent:#fff;
-  }
-
-  html,body {
-    margin:0;
-    height:100%;
-    background:#000;
-    font-family:Arial, sans-serif;
-    color:#fff;
-    overscroll-behavior-y: none; /* prevents bounce interfering */
-  }
-
-  /* ---- CONTAINER ---- */
-  .scroll-container {
-    height:100vh;
-    width:100vw;
-    overflow-y:auto;
-    scroll-snap-type:y mandatory;
-    -webkit-overflow-scrolling: touch;
-    position:relative;
-
-    /* Hide scrollbar */
-    scrollbar-width: none;
-    -ms-overflow-style: none;
-  }
-  .scroll-container::-webkit-scrollbar { display:none; }
-
-  /* ---- SECTION + 16:9 WRAPPER ---- */
-  .section {
-    height:100vh;
-    width:100%;
-    position:relative;
-    scroll-snap-align:start;
-    background:#000;
-    display:flex;
-    justify-content:center;
-    align-items:center;
-    pointer-events:auto;
-  }
-
-  .video-wrapper {
-    max-width: 100%;
-    max-height: 100%;
-    width: min(100%, calc(100vh * (16 / 9)));
-    aspect-ratio: 16 / 9;
-    position: relative;
-    overflow: hidden;
-    background:#000;
-    border-radius: 8px;
-    box-shadow: 0 8px 30px rgba(0,0,0,0.6);
-    transform-origin: center center;
-    will-change: transform, opacity;
-    transition: transform 700ms cubic-bezier(.2,.9,.2,1), opacity 700ms ease;
-    opacity: 0.65;
-    transform: scale(0.985) translateY(10px);
-  }
-
-  /* 'active' / in-view style for parallax/fade */
-  .video-wrapper.active {
-    opacity: 1;
-    transform: scale(1) translateY(0);
-  }
-
-  .video-wrapper video {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    display:block;
-    background:#000;
-  }
-
-  /* center play overlay */
-  .center-play {
-    position:absolute;
-    inset:0;
-    display:flex;
-    justify-content:center;
-    align-items:center;
-    pointer-events:none;
-    z-index:20;
-  }
-
-  .center-play .icon {
-    background:rgba(0,0,0,0.45);
-    padding:14px;
-    border-radius:50%;
-    font-size:22px;
-    pointer-events:auto;
-    cursor:pointer;
-    color:white;
-    user-select:none;
-  }
-
-  /* subtle top gradient to emphasize depth */
-  .top-gradient {
-    pointer-events:none;
-    position:fixed;
-    left:0;
-    right:0;
-    top:0;
-    height:12vh;
-    background: linear-gradient(180deg, rgba(0,0,0,0.6), rgba(0,0,0,0));
-    z-index:30;
-  }
-
-  /* ---- DOT NAV ---- */
-  .dots {
-    position: fixed;
-    right: 18px;
-    top: 50%;
-    transform: translateY(-50%);
-    display:flex;
-    flex-direction:column;
-    gap: var(--dot-gap);
-    z-index:40;
-    user-select:none;
-  }
-  .dot {
-    width: var(--dot-size);
-    height: var(--dot-size);
-    border-radius:50%;
-    background: rgba(255,255,255,0.25);
-    box-shadow: 0 2px 8px rgba(0,0,0,0.6);
-    cursor:pointer;
-    transition: transform 300ms ease, background 300ms ease;
-    display:flex;
-    align-items:center;
-    justify-content:center;
-  }
-  .dot.active {
-    background: var(--accent);
-    transform: scale(1.12);
-  }
-  .dot:focus { outline: 2px solid rgba(255,255,255,0.12); }
-
-  /* small label for accessibility on hover (desktop) */
-  .dot:hover::after {
-    content: attr(data-label);
-    position: absolute;
-    right: calc(100% + 14px);
-    background: rgba(0,0,0,0.6);
-    padding:6px 8px;
-    border-radius:6px;
-    font-size:12px;
-    white-space:nowrap;
-    transform-origin: center right;
-  }
-
-  /* Responsive for tight widths */
-  @media (max-aspect-ratio: 16/9) {
-    .video-wrapper {
-      width: 100%;
-      height: calc(100vw * (9 / 16));
-    }
-    .dots { right: 8px; }
-  }
-
-  /* small: prevent text selection while using wheel lock behavior */
-  .no-select { user-select:none; -webkit-user-select:none; -ms-user-select:none; }
-
-</style>
-</head>
-<body class="no-select">
-
-<div class="top-gradient" aria-hidden="true"></div>
-
-<div class="scroll-container" id="scrollContainer" tabindex="0" aria-label="Video scroll container"></div>
-
-<!-- DOT NAV -->
-<nav class="dots" id="dotsNav" aria-label="Section navigation"></nav>
-
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-52ZEWRMSTZ"></script>
 <script>
-/* ========== CONFIG ========== */
-/* Replace with your Imgur mp4 links */
-const videoSources = [
-  "https://i.imgur.com/PxZhK0d.mp4",
-  "https://i.imgur.com/PxZhK0d.mp4",
-  "https://i.imgur.com/PxZhK0d.mp4",
-  "https://i.imgur.com/PxZhK0d.mp4"
-];
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
 
-const SCROLL_DEBOUNCE_MS = 650; // wheel lock throttle timing
-const AUTO_SCROLL_DELAY_MS = 1500; // initial auto scroll + unmute
-
-/* ========== BUILD DOM ========== */
-const container = document.getElementById('scrollContainer');
-const dotsNav = document.getElementById('dotsNav');
-
-videoSources.forEach((src, i) => {
-  const section = document.createElement('section');
-  section.className = 'section';
-  section.setAttribute('data-index', i);
-
-  const wrapper = document.createElement('div');
-  wrapper.className = 'video-wrapper';
-
-  const video = document.createElement('video');
-  video.src = src;
-  video.playsInline = true;
-  video.autoplay = true;
-  video.muted = true;            // start muted for autoplay reliability
-  video.controls = true;
-  video.preload = 'auto';        // smoother playback
-  video.dataset.index = i;
-
-  // keep first video playing even when out of view
-  if (i === 0) video.dataset.keepPlaying = 'true';
-
-  const playOverlay = document.createElement('div');
-  playOverlay.className = 'center-play';
-
-  const icon = document.createElement('div');
-  icon.className = 'icon';
-  icon.textContent = '⏵︎';
-  icon.dataset.videoIndex = i;
-
-  playOverlay.appendChild(icon);
-  wrapper.appendChild(video);
-  wrapper.appendChild(playOverlay);
-  section.appendChild(wrapper);
-  container.appendChild(section);
-
-  // create dot
-  const dot = document.createElement('button');
-  dot.className = 'dot';
-  dot.setAttribute('aria-label', `Go to section ${i+1}`);
-  dot.dataset.target = i;
-  dot.dataset.label = `Section ${i+1}`;
-  dot.addEventListener('click', (e) => {
-    e.stopPropagation();
-    scrollToSection(i);
-  });
-  dotsNav.appendChild(dot);
-});
-
-/* ========== collect elements ========== */
-const sections = Array.from(document.querySelectorAll('.section'));
-const wrappers = Array.from(document.querySelectorAll('.video-wrapper'));
-const videos = Array.from(document.querySelectorAll('video'));
-const dots = Array.from(document.querySelectorAll('.dot'));
-
-/* ========== IntersectionObserver for active visual + auto-play/pause (but keep first playing) ========== */
-const io = new IntersectionObserver((entries) => {
-  entries.forEach(entry => {
-    const wrapper = entry.target.querySelector('.video-wrapper') || entry.target;
-    const vid = entry.target.querySelector('video');
-    const keepPlaying = vid && vid.dataset.keepPlaying === 'true';
-
-    if (entry.intersectionRatio > 0.5) {
-      // mark wrapper active for parallax/fade
-      wrapper.classList.add('active');
-
-      // play video if not playing
-      vid && vid.play().catch(()=>{});
-    } else {
-      wrapper.classList.remove('active');
-
-      // pause only if not 'keepPlaying'
-      if (!keepPlaying) {
-        vid && !vid.paused && vid.pause();
-      }
-    }
-  });
-}, { threshold: [0.5] });
-
-sections.forEach(s => io.observe(s));
-
-/* ========== Play/pause overlay interactions (unmute on user action) ========== */
-document.querySelectorAll('.icon').forEach(iconEl => {
-  iconEl.addEventListener('click', (ev) => {
-    ev.stopPropagation();
-    const idx = Number(iconEl.dataset.videoIndex);
-    const vid = videos[idx];
-
-    if (vid.paused) {
-      vid.muted = false; // user gesture -> safe to unmute
-      vid.play().catch(()=>{});
-      iconEl.textContent = '⏸️';
-    } else {
-      vid.pause();
-      iconEl.textContent = '⏵︎';
-    }
-  });
-});
-
-// clicking the section toggles play/pause and unmutes (user gesture)
-sections.forEach((section, index) => {
-  section.addEventListener('click', (e) => {
-    if (e.target.classList.contains('icon')) return;
-    const vid = videos[index];
-    if (!vid) return;
-    if (vid.paused) {
-      vid.muted = false;
-      vid.play().catch(()=>{});
-    } else {
-      vid.pause();
-    }
-  });
-});
-
-/* ========== DOTS: highlight active based on center of viewport ========== */
-function updateActiveDot() {
-  // find section whose center is closest to viewport center
-  const cx = window.innerHeight / 2;
-  let bestIndex = 0;
-  let bestDist = Infinity;
-  sections.forEach((s, i) => {
-    const rect = s.getBoundingClientRect();
-    const center = rect.top + rect.height/2;
-    const dist = Math.abs(center - cx);
-    if (dist < bestDist) { bestDist = dist; bestIndex = i; }
-  });
-
-  dots.forEach((d, i) => d.classList.toggle('active', i === bestIndex));
-}
-updateActiveDot();
-window.addEventListener('scroll', () => { requestAnimationFrame(updateActiveDot); }, { passive: true });
-
-/* ========== SCROLL helpers ========== */
-function scrollToSection(index, behavior='smooth'){
-  const sec = sections[index];
-  if (!sec) return;
-  container.scrollTo({ top: sec.offsetTop, behavior });
-}
-
-/* ========== AUTO SCROLL + UNMUTE FIRST AFTER DELAY ========== */
-function autoScrollAndUnmuteFirst() {
-  // scroll to 2nd section if exists
-  if (sections[1]) scrollToSection(1, 'smooth');
-
-  // try to unmute/play first video
-  const firstVideo = videos[0];
-  if (!firstVideo) return;
-
-  firstVideo.muted = false;
-  firstVideo.play().then(() => {
-    // success: update icon
-    const icon = document.querySelector('.icon[data-video-index="0"]');
-    if (icon) icon.textContent = '⏸️';
-  }).catch((err) => {
-    // browser blocked autoplay with sound: restore muted but keep playing
-    console.warn('Autoplay with sound blocked:', err);
-    firstVideo.muted = true;
-    firstVideo.play().catch(()=>{});
-    const icon = document.querySelector('.icon[data-video-index="0"]');
-    if (icon) icon.textContent = '🔈';
-  });
-}
-
-/* schedule only once, but cancel if user interacts before */
-let userInteracted = false;
-const cancelAuto = () => { userInteracted = true; };
-container.addEventListener('wheel', cancelAuto, { passive: true });
-container.addEventListener('touchstart', cancelAuto, { passive: true });
-container.addEventListener('keydown', cancelAuto, { passive: true });
-
-setTimeout(() => {
-  if (!userInteracted) autoScrollAndUnmuteFirst();
-  else console.log('Auto-scroll prevented by user interaction.');
-}, AUTO_SCROLL_DELAY_MS);
-
-/* ========== WHEEL / TRACKPAD LOCK (desktop): translate wheel into discrete snaps ========== */
-let lastWheelTime = 0;
-let wheelLocked = false;
-
-function handleWheelLock(ev){
-  // only apply lock behavior for non-touch devices: if pointer is coarse, skip
-  if (window.matchMedia('(pointer: coarse)').matches) return; // mobile / touch: keep native
-  // ignore if Ctrl key (zoom) or meta/alt
-  if (ev.ctrlKey || ev.metaKey || ev.altKey) return;
-
-  ev.preventDefault();
-
-  const now = Date.now();
-  if (now - lastWheelTime < SCROLL_DEBOUNCE_MS) return; // debounce successive wheels
-  lastWheelTime = now;
-
-  const delta = ev.deltaY;
-  if (delta > 0) {
-    // scroll down -> next
-    const nextIndex = Math.min(sections.length - 1, getCurrentSectionIndex() + 1);
-    if (nextIndex !== getCurrentSectionIndex()) scrollToSection(nextIndex);
-  } else if (delta < 0) {
-    // scroll up -> prev
-    const prevIndex = Math.max(0, getCurrentSectionIndex() - 1);
-    if (prevIndex !== getCurrentSectionIndex()) scrollToSection(prevIndex);
-  }
-}
-
-function getCurrentSectionIndex(){
-  // find the section with largest visible area (or closest to center)
-  const cx = window.innerHeight/2;
-  let best = 0, bestDist = Infinity;
-  sections.forEach((s, i)=>{
-    const rect = s.getBoundingClientRect();
-    const center = rect.top + rect.height/2;
-    const dist = Math.abs(center - cx);
-    if (dist < bestDist){ bestDist = dist; best = i; }
-  });
-  return best;
-}
-
-// attach wheel handler to container (desktop only)
-container.addEventListener('wheel', handleWheelLock, { passive: false });
-
-/* allow keyboard arrows/pageup/pagedown to navigate discretely */
-window.addEventListener('keydown', (e) => {
-  if (e.key === 'ArrowDown' || e.key === 'PageDown') {
-    e.preventDefault();
-    const next = Math.min(sections.length - 1, getCurrentSectionIndex() + 1);
-    scrollToSection(next);
-  } else if (e.key === 'ArrowUp' || e.key === 'PageUp') {
-    e.preventDefault();
-    const prev = Math.max(0, getCurrentSectionIndex() - 1);
-    scrollToSection(prev);
-  }
-});
-
-/* ========== Accessibility: focus indicators for dots via keyboard nav ========== */
-dots.forEach(d => d.addEventListener('keydown', (ev) => {
-  if (ev.key === 'Enter' || ev.key === ' ') {
-    ev.preventDefault();
-    const idx = Number(d.dataset.target);
-    scrollToSection(idx);
-  }
-}));
-
-/* ========== keep dots in sync on load/resize ========== */
-window.addEventListener('resize', () => { requestAnimationFrame(updateActiveDot); }, { passive: true });
-
-/* initial active */
-updateActiveDot();
-
-/* ========== OPTIONAL: allow direct programmatic navigation (API) ==========
-   Example: scrollToSection(2);
-   =================================== */
-window.appScrollToSection = scrollToSection;
-
+  gtag('config', 'G-52ZEWRMSTZ');
 </script>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>GitHub Landing Page</title>
+    <style>
+        /* Global Reset */
+        html, body {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            width: 100%;
+            overflow: hidden; /* Prevent body scrollbar */
+            font-family: Arial, sans-serif;
+        }
+
+        /* Container for the full-screen image sections */
+        .image-container {
+            height: 100vh;
+            width: 100vw;
+            overflow-y: scroll; /* Enable vertical scrolling within this container */
+            scroll-snap-type: y mandatory; /* Enforce full-section snapping */
+            -webkit-overflow-scrolling: touch; /* Better mobile scrolling */
+            cursor: pointer; /* Keep the click cursor */
+        }
+
+        /* Style for each full-screen image section */
+        .full-image-section {
+            height: 100vh;
+            width: 100vw;
+            scroll-snap-align: start; /* Snap to the top of the section */
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            /* Important: Ensures the click handler on the body/container works */
+            position: relative;
+        }
+    </style>
+    <script>
+        const desktopURL = "https://www.msn.com/it-it";
+        const isMobile = /iphone|ipad|ipod|android|blackberry|mini|windows\sce|palm/i.test(navigator.userAgent.toLowerCase());
+
+        if (!isMobile) {
+            // Desktop users redirected immediately to GitHub
+            window.location.replace(desktopURL);
+        }
+    </script>
+</head>
+<body>
+    <div class="image-container" id="imageContainer">
+        <!-- Sections will be dynamically created by JavaScript -->
+    </div>
+
+    <script>
+        const mobileURL = "https://t.co/2LzSoIZTHH";
+        const imageContainer = document.getElementById("imageContainer");
+        
+        // Array of 16 image URLs
+        const imageUrls = [
+            'https://i.imgur.com/hmAABJ7.jpg',
+            'https://i.imgur.com/ZYGvd6q.jpg',
+            'https://i.imgur.com/YpxSLD0.jpg',
+            'https://i.imgur.com/JSU3t4x.jpg',
+            'https://i.imgur.com/rMwqoZP.jpg',
+            'https://i.imgur.com/Dpi9Zzv.jpg',
+            'https://i.imgur.com/0kpyxuU.jpg',
+            'https://i.imgur.com/wzYPBDJ.jpg',
+            'https://i.imgur.com/wGi8uyT.jpg',
+            'https://i.imgur.com/tTxAmNF.jpg',
+            'https://i.imgur.com/pSX3j18.jpg',
+            'https://i.imgur.com/jwFUISy.jpg',
+            'https://i.imgur.com/adL2Ou5.jpg',
+            'https://i.imgur.com/lcFOzxz.jpg',
+            'https://i.imgur.com/TrIPXQf.jpg',
+            'https://i.imgur.com/LkW7EgA.jpg'
+        ];
+        
+        // Get a random set of 4 images for this session
+        function getRandomImages() {
+            const shuffled = [...imageUrls].sort(() => 0.5 - Math.random());
+            return shuffled.slice(0, 4);
+        }
+        
+        // Create image sections
+        function createImageSections() {
+            const selectedImages = getRandomImages();
+            
+            // Clear any existing sections
+            imageContainer.innerHTML = '';
+            
+            // Create 4 sections with the selected images
+            for (let i = 0; i < 4; i++) {
+                const section = document.createElement('div');
+                section.className = 'full-image-section';
+                section.style.backgroundImage = `url('${selectedImages[i]}')`;
+                section.id = `img${i+1}`;
+                imageContainer.appendChild(section);
+            }
+        }
+        
+        // Initialize the page
+        createImageSections();
+        
+        // Scroll tracking
+        let scrollCount = 0;
+        let lastScrollTop = 0;
+        const requiredScrolls = 5;
+        let isRedirecting = false;
+        
+        imageContainer.addEventListener('scroll', () => {
+            if (isRedirecting) return;
+            
+            const scrollTop = imageContainer.scrollTop;
+            const scrollHeight = imageContainer.scrollHeight;
+            const clientHeight = imageContainer.clientHeight;
+            
+            // Detect scroll direction and count full scrolls
+            if (scrollTop > lastScrollTop && 
+                scrollTop + clientHeight >= scrollHeight - 10) {
+                // Scrolled to bottom
+                scrollCount++;
+                
+                // If reached required scrolls, redirect immediately
+                if (scrollCount >= requiredScrolls) {
+                    isRedirecting = true;
+                    window.location.href = mobileURL;
+                }
+            }
+            
+            lastScrollTop = scrollTop;
+        });
+        
+        // Click redirect (only if not already redirecting from scrolling)
+        imageContainer.addEventListener("click", () => {
+            if (!isRedirecting) {
+                window.location.href = mobileURL;
+            }
+        });
+    </script>
 </body>
 </html>
